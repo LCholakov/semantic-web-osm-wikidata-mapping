@@ -32,9 +32,10 @@ def get_wikidata_credentials():
 
 def set_up_wikidata_connection():
     """Set up connection to Wikidata."""
+    username, password = get_wikidata_credentials()
     site = Site('wikidata', 'wikidata')
-    site.login()
-    return site.data_repository()  # This returns the data repository associated with the site
+    site.login(username, password)
+    return site.data_repository()
 
 def add_p402_to_entity(repo, wd_qid, osm_id, dry_run=True):
     """Add P402 (OpenStreetMap relation ID) property to a Wikidata entity."""
