@@ -1,0 +1,62 @@
+{
+  "version": 0.6,
+  "generator": "Overpass API 0.7.62.7 375dc00a",
+  "osm3s": {
+    "timestamp_osm_base": "2025-06-27T10:48:15Z",
+    "timestamp_areas_base": "2025-06-25T21:32:45Z",
+    "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+  },
+  "elements": [
+
+{
+  "type": "relation",
+  "id": 4777998,
+  "center": {
+    "lat": 42.4400325,
+    "lon": 27.6412533
+  },
+  "tags": {
+    "admin_level": "9",
+    "boundary": "administrative",
+    "name": "Черноморец",
+    "place": "town",
+    "type": "boundary"
+  }
+},
+{
+  "type": "relation",
+  "id": 11891425,
+  "center": {
+    "lat": 43.2109762,
+    "lon": 25.3664824
+  },
+  "tags": {
+    "ekatte": "68708",
+    "int_name": "Stambolovo",
+    "name": "Стамболово",
+    "name:en": "Stambolovo",
+    "place": "village",
+    "source": "bgtopomaps",
+    "type": "site"
+  }
+},
+{
+  "type": "relation",
+  "id": 11891425,
+  "center": {
+    "lat": 43.3109762,
+    "lon": 25.3564824
+  },
+  "tags": {
+    "ekatte": "68708",
+    "int_name": "Stambolovo",
+    "name": "Стамболово",
+    "name:en": "Stambolovo",
+    "place": "village",
+    "source": "bgtopomaps",
+    "type": "site"
+  }
+}
+
+  ]
+}
