@@ -1,0 +1,27 @@
+# Get all settlements in Bulgaria with coordinates.
+# Some are listedas "populated places of Bulgaria" (Q486972)
+# so we make a union.
+
+SELECT DISTINCT ?settlement ?settlementLabel ?coord WHERE {
+  {
+    ?settlement wdt:P31/wdt:P279 wd:Q486972.
+  }
+
+  UNION
+  {
+    # Add "populated place of Bulgaria" and one level subclass
+    # because Klisura for example is a "city in Bulgaria"  and a "kmetstvo of Bulgaria"
+    # and "city in Bulgaria" is a subclass of "populated place of Bulgaria"
+    ?settlement wdt:P31/wdt:P279 wd:Q95993392.
+  }
+
+    ?settlement wdt:P17 wd:Q219;
+                wdt:P625 ?coord.
+#                 wdt:P402 ?osmRelation.
+
+#   monastery is a subclass of human settlement
+#   (e.g. look at Sopot - there's the Q12294185 Sopot Monastery
+#   and Q12294184 Sopot convent)
+#   so we gotta remove them from results
+  FILTER( ?settlement != wd:Q44613 )
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "bg". }

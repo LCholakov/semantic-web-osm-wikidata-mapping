@@ -1,0 +1,13 @@
+// Get all relations for settlements
+
+[out:json][timeout:25];
+
+{{geocodeArea:Bulgaria}}->.searchArea;
+
+relation
+  ["place"~"city|town|village"]
+// show only relations missingwikidata
+  ["wikidata"!~"."]
+  (area.searchArea);
+
+out center tags;
