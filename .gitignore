@@ -4,3 +4,4 @@
 venv
 tulechki-admin-zones
 archive
+**/*.ctrl

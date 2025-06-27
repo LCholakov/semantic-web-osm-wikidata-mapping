@@ -1,5 +1,4 @@
-fiona==1.9.6
-geopandas
 matplotlib
 requests
 dotenv
+pywikibot
