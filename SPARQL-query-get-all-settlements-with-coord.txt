@@ -25,3 +25,4 @@ SELECT DISTINCT ?settlement ?settlementLabel ?coord WHERE {
 #   so we gotta remove them from results
   FILTER( ?settlement != wd:Q44613 )
   SERVICE wikibase:label { bd:serviceParam wikibase:language "bg". }
+}
