@@ -62,7 +62,7 @@ WIKIDATA_PASSWORD=your_wikidata_password
 The project requires these input files:
 
 - `osm-relations-without-wikidata.json` - OSM relations that need Wikidata tags
-- `wikidata-hardcode-3towns-for-match-test.json` - Wikidata entities for matching
+- `wikidata-entities.json` - Wikidata entities for matching
 
 Example structure for OSM data:
 ```json
@@ -100,7 +100,7 @@ Example structure for Wikidata data:
 Find corresponding entities between OSM and Wikidata:
 
 ```bash
-python match-osm-wiki-small-batch-test.py
+python match-osm-wiki.py
 ```
 
 This script:
@@ -153,7 +153,7 @@ This adds `wikidata=Q12345` tags to matched OSM relations.
 
 ```bash
 # 1. Match entities
-python match-osm-wiki-small-batch-test.py
+python match-osm-wiki.py
 
 # 2. Review matches
 cat matches.csv
