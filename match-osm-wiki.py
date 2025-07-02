@@ -9,7 +9,7 @@ with open("osm-relations-without-wikidata.json", "r", encoding="utf-8") as osm_f
     osm_data = json.load(osm_file)
 
 # Load Wikidata
-with open("wikidata-hardcode-3towns-for-match-test.json", "r", encoding="utf-8") as wikidata_file:
+with open("wikidata-entities.json", "r", encoding="utf-8") as wikidata_file:
     wikidata_data = json.load(wikidata_file)
 
 # Extract OSM elements
