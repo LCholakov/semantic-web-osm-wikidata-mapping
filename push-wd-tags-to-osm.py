@@ -3,12 +3,10 @@ import os
 import sys
 import requests
 import time
+import json
 from dotenv import load_dotenv
 from requests_oauthlib import OAuth2Session
-import json
-from getpass import getpass
-from urllib.parse import quote
-
+import xml.etree.ElementTree as ET
 
 
 def read_matches(csv_file):
@@ -24,52 +22,45 @@ def read_matches(csv_file):
             })
     return matches
 
+
 def get_osm_credentials():
     """Get OSM OAuth2 credentials from environment."""
     load_dotenv()
     client_id = os.getenv('OSM_CLIENT_ID')
     client_secret = os.getenv('OSM_CLIENT_SECRET')
-    redirect_uri = os.getenv('OSM_REDIRECT_URI')
 
     if not client_id or not client_secret:
         print("Error: OSM_CLIENT_ID and OSM_CLIENT_SECRET must be set in .env file")
         return None, None
 
-    return client_id, client_secret, redirect_uri
+    return client_id, client_secret
 
 
-def authenticate_osm_oauth2(client_id, client_secret, redirect_uri):
+def authenticate_osm_oauth2(client_id, client_secret):
     """Authenticate with OSM API using OAuth2 and get an access token."""
     # OAuth2 endpoints for OpenStreetMap
     authorization_base_url = 'https://www.openstreetmap.org/oauth2/authorize'
     token_url = 'https://www.openstreetmap.org/oauth2/token'
 
     # Redirect URI (for desktop applications, this is typically a localhost URL)
-    token_string =  os.getenv('OSM_TOKEN_STRING')
-    redirect_uri = os.getenv('OSM_REDIRECT_URI')
-
-    # Create OAuth2 session
-    osm = OAuth2Session(client_id, redirect_uri=redirect_uri, scope=['read_prefs', 'write_api'])
-
-    # Get authorization URL
-    authorization_url, state = osm.authorization_url(authorization_base_url)
-
-    print(f"Please go to {authorization_url} and authorize access.")
-    authorization_response = input('Paste the full redirect URL here:')
+    redirect_uri = 'https://localhost:5678/callback'
+    redirect_uri = os.environ.get('OSM_REDIRECT_URI', redirect_uri)
 
     # Fetch the access token
     try:
-        token = {"access_token": token_string, "token_type": "bearer"}
-
-        # token = osm.fetch_token(
-        #     token_url,
-        #     authorization_response=authorization_response,
-        #     client_secret=client_secret
-        # )
-        return osm, token
+        # load the long-lived access token
+        with open("osm_token.json") as f:
+            token = json.load(f)
     except Exception as e:
         print(f"OAuth2 authentication failed: {e}")
         return None, None
+    # Create OAuth2 session
+    osm = OAuth2Session(client_id, redirect_uri=redirect_uri, scope=['read_prefs', 'write_api'], token=token)
+
+    # Get authorization URL
+    authorization_url, state = osm.authorization_url(authorization_base_url)
+    return osm, token
+
 
 
 def get_relation_data(relation_id, oauth_session=None):
@@ -87,7 +78,6 @@ def get_relation_data(relation_id, oauth_session=None):
         return None
 
     return response.json()
-
 
 def update_relation_with_wikidata(relation_id, wikidata_qid, oauth_session, dry_run=True):
     """Update an OSM relation with a wikidata tag using OAuth2."""
@@ -123,13 +113,27 @@ def update_relation_with_wikidata(relation_id, wikidata_qid, oauth_session, dry_
 
     update_url = f"https://api.openstreetmap.org/api/0.6/relation/{relation_id}"
     headers = {"Content-Type": "application/xml"}
-    xml_data = f"""
-    <osm>
-        <relation id="{relation_id}" version="{version}" changeset="{changeset_id}">
-            <!-- tags and other elements would go here -->
-        </relation>
-    </osm>
-    """
+
+    # Create a complete XML representation of the relation
+    root = ET.Element("osm")
+    rel_element = ET.SubElement(root, "relation",
+                                id=str(relation_id),
+                                version=str(version),
+                                changeset=str(changeset_id))
+
+    # Add all members (nodes, ways, relations)
+    for member in relation.get('members', []):
+        ET.SubElement(rel_element, "member",
+                      type=member.get('type', ''),
+                      ref=str(member.get('ref', '')),
+                      role=member.get('role', ''))
+
+    # Add all tags, including the new wikidata tag
+    for key, value in tags.items():
+        ET.SubElement(rel_element, "tag", k=key, v=value)
+
+    # Convert the XML tree to a string
+    xml_data = ET.tostring(root, encoding='utf-8').decode('utf-8')
 
     response = oauth_session.put(update_url, headers=headers, data=xml_data)
     if response.status_code != 200:
@@ -179,12 +183,12 @@ def main():
         print("To commit changes, run with --commit flag.")
 
     # Authenticate with OSM API using OAuth2
-    client_id, client_secret, redirect_uri = get_osm_credentials()
+    client_id, client_secret = get_osm_credentials()
     if not client_id or not client_secret:
         print("OAuth2 credentials not found. Exiting.")
         return
 
-    oauth_session, token = authenticate_osm_oauth2(client_id, client_secret, redirect_uri)
+    oauth_session, token = authenticate_osm_oauth2(client_id, client_secret)
     if not oauth_session:
         print("OAuth2 authentication failed. Exiting.")
         return
