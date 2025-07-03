@@ -6,3 +6,4 @@ tulechki-admin-zones
 archive
 **/*.ctrl
 matches.csv
+osm_token.json
