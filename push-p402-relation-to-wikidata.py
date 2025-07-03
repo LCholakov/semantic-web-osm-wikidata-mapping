@@ -34,7 +34,7 @@ def set_up_wikidata_connection():
     """Set up connection to Wikidata."""
     username, password = get_wikidata_credentials()
     site = Site('wikidata', 'wikidata')
-    site.login(username, password)
+    site.login(username)
     return site.data_repository()
 
 def add_p402_to_entity(repo, wd_qid, osm_id, dry_run=True):
