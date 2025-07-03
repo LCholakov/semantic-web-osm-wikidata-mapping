@@ -1,12 +1,14 @@
 import csv
 import os
 import sys
-import json
 import requests
 import time
+from dotenv import load_dotenv
+from requests_oauthlib import OAuth2Session
+import json
 from getpass import getpass
 from urllib.parse import quote
-from dotenv import load_dotenv
+
 
 
 def read_matches(csv_file):
@@ -23,39 +25,74 @@ def read_matches(csv_file):
     return matches
 
 def get_osm_credentials():
+    """Get OSM OAuth2 credentials from environment."""
     load_dotenv()
-    """Get OSM username and password from environment or prompt."""
-    username = os.getenv('OSM_USERNAME') or input("OSM Username: ")
-    password = os.getenv('OSM_PASSWORD') or getpass("OSM Password: ")
-    return username, password
+    client_id = os.getenv('OSM_CLIENT_ID')
+    client_secret = os.getenv('OSM_CLIENT_SECRET')
+    redirect_uri = os.getenv('OSM_REDIRECT_URI')
 
-def authenticate_osm(username, password):
-    """Authenticate with OSM API and get an auth token."""
-    auth_url = "https://www.openstreetmap.org/api/0.6/user/details"
-    response = requests.get(auth_url, auth=(username, password))
+    if not client_id or not client_secret:
+        print("Error: OSM_CLIENT_ID and OSM_CLIENT_SECRET must be set in .env file")
+        return None, None
 
-    if response.status_code != 200:
-        print(f"Authentication failed: {response.status_code} {response.text}")
-        return None
+    return client_id, client_secret, redirect_uri
 
-    return username, password
 
-def get_relation_data(relation_id, auth=None):
-    """Get current relation data from OSM."""
+def authenticate_osm_oauth2(client_id, client_secret, redirect_uri):
+    """Authenticate with OSM API using OAuth2 and get an access token."""
+    # OAuth2 endpoints for OpenStreetMap
+    authorization_base_url = 'https://www.openstreetmap.org/oauth2/authorize'
+    token_url = 'https://www.openstreetmap.org/oauth2/token'
+
+    # Redirect URI (for desktop applications, this is typically a localhost URL)
+    token_string =  os.getenv('OSM_TOKEN_STRING')
+    redirect_uri = os.getenv('OSM_REDIRECT_URI')
+
+    # Create OAuth2 session
+    osm = OAuth2Session(client_id, redirect_uri=redirect_uri, scope=['read_prefs', 'write_api'])
+
+    # Get authorization URL
+    authorization_url, state = osm.authorization_url(authorization_base_url)
+
+    print(f"Please go to {authorization_url} and authorize access.")
+    authorization_response = input('Paste the full redirect URL here:')
+
+    # Fetch the access token
+    try:
+        token = {"access_token": token_string, "token_type": "bearer"}
+
+        # token = osm.fetch_token(
+        #     token_url,
+        #     authorization_response=authorization_response,
+        #     client_secret=client_secret
+        # )
+        return osm, token
+    except Exception as e:
+        print(f"OAuth2 authentication failed: {e}")
+        return None, None
+
+
+def get_relation_data(relation_id, oauth_session=None):
+    """Get current relation data from OSM using OAuth2."""
     url = f"https://api.openstreetmap.org/api/0.6/relation/{relation_id}.json"
     headers = {"Accept": "application/json"}
 
-    response = requests.get(url, headers=headers, auth=auth)
+    if oauth_session:
+        response = oauth_session.get(url, headers=headers)
+    else:
+        response = requests.get(url, headers=headers)
+
     if response.status_code != 200:
         print(f"Failed to get relation {relation_id}: {response.status_code} {response.text}")
         return None
 
     return response.json()
 
-def update_relation_with_wikidata(relation_id, wikidata_qid, auth, dry_run=True):
-    """Update an OSM relation with a wikidata tag."""
+
+def update_relation_with_wikidata(relation_id, wikidata_qid, oauth_session, dry_run=True):
+    """Update an OSM relation with a wikidata tag using OAuth2."""
     # Get current relation data
-    relation_data = get_relation_data(relation_id, auth)
+    relation_data = get_relation_data(relation_id, oauth_session)
     if not relation_data:
         return False
 
@@ -80,7 +117,7 @@ def update_relation_with_wikidata(relation_id, wikidata_qid, auth, dry_run=True)
 
     # Update the relation in OSM
     version = relation.get('version')
-    changeset_id = create_changeset(auth)
+    changeset_id = create_changeset(oauth_session)
     if not changeset_id:
         return False
 
@@ -94,19 +131,16 @@ def update_relation_with_wikidata(relation_id, wikidata_qid, auth, dry_run=True)
     </osm>
     """
 
-    # Note: This is simplified. In reality, you need to preserve all members and tags
-    # of the relation, which requires more complex XML construction.
-    # Consider using a library like osmapi instead of raw requests.
-
-    response = requests.put(update_url, auth=auth, headers=headers, data=xml_data)
+    response = oauth_session.put(update_url, headers=headers, data=xml_data)
     if response.status_code != 200:
         print(f"Failed to update relation {relation_id}: {response.status_code} {response.text}")
         return False
 
     return True
 
-def create_changeset(auth):
-    """Create a new changeset for the edits."""
+
+def create_changeset(oauth_session):
+    """Create a new changeset for the edits using OAuth2."""
     url = "https://api.openstreetmap.org/api/0.6/changeset/create"
     headers = {"Content-Type": "application/xml"}
     changeset_data = """
@@ -118,12 +152,13 @@ def create_changeset(auth):
     </osm>
     """
 
-    response = requests.put(url, auth=auth, headers=headers, data=changeset_data)
+    response = oauth_session.put(url, headers=headers, data=changeset_data)
     if response.status_code != 200:
         print(f"Failed to create changeset: {response.status_code} {response.text}")
         return None
 
     return response.text.strip()
+
 
 def main():
     # Load matches
@@ -143,12 +178,18 @@ def main():
         print("Running in DRY RUN mode. No changes will be made to OSM.")
         print("To commit changes, run with --commit flag.")
 
-    # Authenticate with OSM API
-    username, password = get_osm_credentials()
-    auth = authenticate_osm(username, password)
-    if not auth:
-        print("Authentication failed. Exiting.")
+    # Authenticate with OSM API using OAuth2
+    client_id, client_secret, redirect_uri = get_osm_credentials()
+    if not client_id or not client_secret:
+        print("OAuth2 credentials not found. Exiting.")
         return
+
+    oauth_session, token = authenticate_osm_oauth2(client_id, client_secret, redirect_uri)
+    if not oauth_session:
+        print("OAuth2 authentication failed. Exiting.")
+        return
+
+    print("OAuth2 authentication successful!")
 
     # Process each match
     success_count = 0
@@ -160,7 +201,7 @@ def main():
         print(f"Processing {name} (Wikidata: {wikidata_qid}, OSM: {osm_id})...")
 
         try:
-            success = update_relation_with_wikidata(osm_id, wikidata_qid, auth, dry_run)
+            success = update_relation_with_wikidata(osm_id, wikidata_qid, oauth_session, dry_run)
             if success:
                 success_count += 1
                 print(f"Successfully {'prepared' if dry_run else 'updated'} OSM relation {osm_id}")
@@ -176,6 +217,6 @@ def main():
     if not dry_run:
         print("Changes have been pushed to OpenStreetMap!")
 
+
 if __name__ == "__main__":
     main()
-

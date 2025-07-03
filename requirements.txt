@@ -1,4 +1,5 @@
 matplotlib
 requests
-dotenv
+python-dotenv
 pywikibot
+requests-oauthlib
