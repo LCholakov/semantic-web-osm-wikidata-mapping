@@ -49,8 +49,8 @@ cp .env.example .env
 
 2. Edit `.env` with your credentials:
 ```env
-OSM_USERNAME=your_osm_username
-OSM_PASSWORD=your_osm_password
+OSM_CLIENT_ID=your_osm_client_id
+OSM_CLIENT_SECRET=your_secret
 WIKIDATA_USERNAME=your_wikidata_username
 WIKIDATA_PASSWORD=your_wikidata_password
 ```
